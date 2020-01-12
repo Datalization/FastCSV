@@ -20,6 +20,7 @@ import java.io.Closeable;
 import java.io.Flushable;
 import java.io.IOException;
 import java.io.Writer;
+import java.util.Objects;
 
 /**
  * This is the main class for writing CSV data.
@@ -34,17 +35,17 @@ public final class CsvAppender implements Closeable, Flushable {
     private final Writer writer;
     private final char fieldSeparator;
     private final char textDelimiter;
-    private final boolean alwaysDelimitText;
+    private final TextDelimitStrategy textDelimitStrategy;
     private final char[] lineDelimiter;
 
     private boolean newline = true;
 
     CsvAppender(final Writer writer, final char fieldSeparator, final char textDelimiter,
-                final boolean alwaysDelimitText, final char[] lineDelimiter) {
+                final TextDelimitStrategy textDelimitStrategy, final char[] lineDelimiter) {
         this.writer = new FastBufferedWriter(writer);
         this.fieldSeparator = fieldSeparator;
         this.textDelimiter = textDelimiter;
-        this.alwaysDelimitText = alwaysDelimitText;
+        this.textDelimitStrategy = Objects.requireNonNull(textDelimitStrategy);
         this.lineDelimiter = lineDelimiter;
     }
 
@@ -63,7 +64,16 @@ public final class CsvAppender implements Closeable, Flushable {
         }
 
         if (value == null) {
-            if (alwaysDelimitText) {
+            if (textDelimitStrategy == TextDelimitStrategy.ALWAYS) {
+                writer.write(textDelimiter);
+                writer.write(textDelimiter);
+            }
+            return;
+        }
+
+        if (value.isEmpty()) {
+            if (textDelimitStrategy == TextDelimitStrategy.ALWAYS
+                || textDelimitStrategy == TextDelimitStrategy.EMPTY) {
                 writer.write(textDelimiter);
                 writer.write(textDelimiter);
             }
@@ -71,7 +81,7 @@ public final class CsvAppender implements Closeable, Flushable {
         }
 
         final char[] valueChars = value.toCharArray();
-        boolean needsTextDelimiter = alwaysDelimitText;
+        boolean needsTextDelimiter = textDelimitStrategy == TextDelimitStrategy.ALWAYS;
         boolean containsTextDelimiter = false;
 
         for (final char c : valueChars) {
